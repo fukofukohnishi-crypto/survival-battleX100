@@ -34,6 +34,7 @@ node tools/sim.js 5
 | `CHARS` / `BOSSES` | キャラ6人、ボス4体の定義 |
 | `genWorld()` | フィールド生成。予約マスク `res` で家と高台の重複を防いでいる |
 | `walkable/tileFree/moveEnt` | 壁の当たり判定と高低差の処理。**ここは繊細なので触るなら慎重に** |
+| `dash` | 緊急回避。1pxずつ進んで壁の手前で止まる |
 | `newEnt/spawnAll` | 100人の生成 |
 | `hurt/kill/fire/meleeHit` | ダメージと攻撃 |
 | `updateBullets/onHit/impact` | 弾の移動・命中・爆発 |
