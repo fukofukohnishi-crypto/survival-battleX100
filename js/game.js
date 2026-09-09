@@ -383,7 +383,7 @@ function newEnt(bot,charId,cell){
   hp:C.hp,max:C.hp,guard:C.id==='mad'?40:0,food:100,ammo:C.id==='sof'?300:60,
   items:{heal:C.id==='min'?2:1,pot:1,food:C.id==='hun'?5:1},
   wp:[makeSpecial(C.w),null],cur:0,
-  cool:0,charge:0,charging:0,sub:0,elem:0,alive:1,kills:0,
+  cool:0,charge:0,charging:0,sub:0,elem:0,alive:1,kills:0,dashCd:0,
   burn:0,poison:0,slow:0,stun:0,bleed:0,soak:0,bladeTime:60000,bladeCd:0,
   st:'roam',tx:p.x,ty:p.y,think:0,tgt:null,chestT:null,aggr:0,flash:0,blade:0,sun:0,inv:5000,
   col:C.col
@@ -775,6 +775,7 @@ function updateEnt(e,dt){
  if(e.stun>0)e.stun-=dt;
  if(e.sun>0)e.sun-=dt;
  if(e.inv>0)e.inv-=dt;
+ if(e.dashCd>0)e.dashCd-=dt;
  // バリア纏い：1分使うと10秒間まったく使えなくなる
  if(e.bladeOn){
   e.bladeTime-=dt;
@@ -1181,6 +1182,7 @@ addEventListener('keydown',e=>{
   for(let k=1;k<=n;k++){const i=(player.cur+k)%n;if(player.wp[i]){player.cur=i;break;}}
   player.charge=0;
  }
+ if(e.code==='Space'&&!e.repeat)dash(player);
  if(e.code==='KeyE')interact();
  if(e.code==='KeyF')useFood();
  if(e.code==='KeyG')usePot();
@@ -1216,6 +1218,8 @@ function bindCanvas(){
  cv.addEventListener('touchstart',e=>{
   e.preventDefault();
   for(const t of e.changedTouches){
+   const r0=cv.getBoundingClientRect();
+   if(dashBtn.r&&Math.hypot(t.clientX-r0.left-dashBtn.x,t.clientY-r0.top-dashBtn.y)<dashBtn.r){dash(player);continue;}
    if(t.clientX<innerWidth*0.45&&stickId===null){stickId=t.identifier;stick.on=1;stick.ox=t.clientX;stick.oy=t.clientY;stick.x=0;stick.y=0;}
    else if(fireId===null){fireId=t.identifier;mouse.down=1;aimTouch(t);}
   }
@@ -1235,6 +1239,7 @@ function bindCanvas(){
  });
 }
 const stick={on:0,x:0,y:0,ox:0,oy:0};
+let dashBtn={x:0,y:0,r:0};
 function aimTouch(t){
  const r=cv.getBoundingClientRect();
  mouse.x=t.clientX-r.left;mouse.y=t.clientY-r.top;
@@ -1248,6 +1253,45 @@ function releaseCharge(){
  const w=curW(player);if(!w)return;
  if(wdef(w).e.charge&&player.charging){fire(player);player.charging=0;}
  player.charge=0;
+}
+/* ---------- 緊急回避 ----------
+   宝箱5つ分だけ前に跳ぶ。食料を10消費する。
+   途中に壁があれば、宝箱0.18個分だけ手前を空けて止まる。 */
+const CHEST_UNIT=26;                 // 宝箱1つ分の幅(px)
+const DASH_DIST=CHEST_UNIT*5;        // 130px
+const DASH_GAP=CHEST_UNIT*0.18;      // 約4.7px
+function dash(e){
+ if(e.dashCd>0)return;
+ if(e.food<10){if(e===player)addText(e.x,e.y-30,'食料が足りない','#ff8a8a');return;}
+ if(e.stun>0)return;
+ e.food-=10;e.dashCd=250;
+ const dx=Math.cos(e.ang),dy=Math.sin(e.ang);
+ const sx=e.x,sy=e.y;
+ let moved=0,blocked=false;
+ while(moved<DASH_DIST){
+  const nx=e.x+dx,ny=e.y+dy;
+  if(!tileFree(e,nx,ny,e.r)){blocked=true;break;}
+  e.x=nx;e.y=ny;moved++;
+  const tt=T(Math.floor(e.x/TS),Math.floor(e.y/TS));
+  if(tt===HIGH)e.lvl=1;else if(tt===FLOOR||tt===ROCK)e.lvl=0;
+  e.onStair=(tt===STAIR);
+ }
+ if(blocked){
+  // 壁にめり込まないよう、宝箱0.18個分だけ下がる
+  let back=0;
+  while(back<DASH_GAP&&moved>0){
+   const nx=e.x-dx,ny=e.y-dy;
+   if(!tileFree(e,nx,ny,e.r))break;
+   e.x=nx;e.y=ny;back++;moved--;
+  }
+ }
+ // 残像
+ for(let k=0;k<7;k++){
+  const p=k/7;
+  fx.push({x:sx+(e.x-sx)*p,y:sy+(e.y-sy)*p,vx:0,vy:0,l:220,ml:220,c:'#9fe8ff',s:5});
+ }
+ addFx(e.x,e.y,'#cfefff',8,3,300,3);
+ if(e===player)addText(e.x,e.y-30,'緊急回避','#9fe8ff');
 }
 function useHeal(){if(player.items.heal>0&&player.hp<player.max){player.items.heal--;heal(player,40);}}
 function useFood(){if(player.items.food>0){player.items.food--;player.food=Math.min(100,player.food+55);addText(player.x,player.y-26,'満腹度+55','#ffd9a0');}}
@@ -1665,7 +1709,9 @@ function drawHUD(t){
  bar(bx,by+44,240,10,P.food/100,P.food<25?'#ff8a8a':'#ffd08a','満腹度 '+Math.round(P.food));
  ctx.textAlign='left';ctx.font='12px system-ui';ctx.fillStyle='#a9bdd4';
  ctx.fillText('弾薬 '+P.ammo+'　　回復[R] '+P.items.heal+'　食料[F] '+P.items.food+'　薬[G] '+P.items.pot,bx,by+80);
- if(P.food<=0){ctx.fillStyle='#ff8a8a';ctx.fillText('空腹！体力が減り、動きが遅い',bx,by+96);}
+ ctx.fillStyle=P.food>=10?'#9fe8ff':'#5b6b7d';
+ ctx.fillText('緊急回避[Space] 食料-10',bx,by+96);
+ if(P.food<=0){ctx.fillStyle='#ff8a8a';ctx.fillText('空腹！体力が減り、動きが遅い',bx+180,by+96);}
  // 右下 武器
  const nS=P.wp.length, comp=nS>2;
  const rowH=comp?24:38, gap=comp?3:6, boxW=comp?228:216;
@@ -1744,6 +1790,16 @@ function drawHUD(t){
  ctx.fillStyle='#7fd8ff';ctx.beginPath();ctx.arc(mx+player.x*sc,my+player.y*sc,3.5,0,TAU);ctx.fill();
  ctx.strokeStyle='rgba(127,216,255,.5)';ctx.lineWidth=1;ctx.strokeRect(mx,my,ms,ms);
  if(!mapOpen){ctx.fillStyle='#68809a';ctx.font='10px system-ui';ctx.textAlign='right';ctx.fillText('[M] 拡大',mx+ms,my+ms+14);}
+ // スマホ用の緊急回避ボタン
+ if(isTouch){
+  dashBtn={x:W-72,y:H-190,r:34};
+  ctx.fillStyle=P.food>=10?'rgba(30,58,84,.85)':'rgba(24,30,40,.7)';
+  ctx.beginPath();ctx.arc(dashBtn.x,dashBtn.y,dashBtn.r,0,TAU);ctx.fill();
+  ctx.strokeStyle=P.food>=10?'#7fd8ff':'#3d4c5f';ctx.lineWidth=2;ctx.stroke();
+  ctx.fillStyle=P.food>=10?'#cfefff':'#54687f';ctx.font='bold 12px system-ui';ctx.textAlign='center';
+  ctx.fillText('回避',dashBtn.x,dashBtn.y-1);
+  ctx.font='10px system-ui';ctx.fillText('食料-10',dashBtn.x,dashBtn.y+13);
+ }
  // タッチ用スティック
  if(stick.on){
   ctx.fillStyle='rgba(255,255,255,.12)';ctx.beginPath();ctx.arc(stick.ox,stick.oy,54,0,TAU);ctx.fill();
