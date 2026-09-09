@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>サバイバルバトルX100</title>
+<link rel="stylesheet" href="css/style.css">
+
+</head>
+<body>
+<canvas id="cv"></canvas>
+
+<div class="screen" id="menu">
+ <div class="wrap">
+  <div class="title">
+   <h1>サバイバルバトル<br>X100</h1>
+   <p class="sub">100人が一つの広大なフィールドに降りる。宝箱を壊して武器を集め、空腹と戦い、四隅のボスから伝説の武器を奪う。<b>武器は全500種</b>。最後の1人になれ。</p>
+  </div>
+
+  <div class="sec">
+   <h2>キャラクターを選ぶ</h2>
+   <div id="chars"></div>
+  </div>
+
+  <div class="sec">
+   <h2>覚えておくこと</h2>
+   <div class="cols">
+    <div class="box">
+     <h4>操作</h4>
+     <ul>
+      <li><span>移動</span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></li>
+      <li><span>攻撃</span>左クリック（長押しで連射・チャージ）</li>
+      <li><span>サブ動作</span>右クリック / <kbd>Shift</kbd></li>
+      <li><span>武器切替</span><kbd>Q</kbd>／数字キー（実験モードは<kbd>1</kbd>〜<kbd>9</kbd><kbd>0</kbd>で10スロット）</li>
+      <li><span>拾う</span><kbd>E</kbd></li>
+      <li><span>回復/食料/薬</span><kbd>R</kbd> <kbd>F</kbd> <kbd>G</kbd></li>
+      <li><span>纏い／属性</span><kbd>X</kbd>（バリアブレード・神槍）</li>
+      <li><span>地図</span><kbd>M</kbd></li>
+     </ul>
+     <p style="font-size:12px;color:var(--dim);margin-top:10px;line-height:1.8">スマホは画面左半分でスティック移動、右半分をタップで照準と射撃（自動照準あり）。</p>
+    </div>
+    <div class="box">
+     <h4>生き延びるために</h4>
+     <ul>
+      <li><span>宝箱</span>攻撃すると壊れて中身が飛び出す</li>
+      <li><span>家</span>必ず宝箱が1〜3個ある</li>
+      <li><span>階段</span>高台に登れる。高台の敵は下からの弾が当たらない</li>
+      <li><span>防御力</span>ガードポーションで上がり、攻撃を受けると減る</li>
+      <li><span>満腹度</span>0になると体力が減り、動きも鈍る</li>
+      <li><span>ボス</span>四隅にいる。倒すと専用武器を落とす</li>
+     </ul>
+    </div>
+    <div class="box">
+     <h4>武器ランク</h4>
+     <p style="font-size:12.5px;color:var(--dim);line-height:1.8;margin-bottom:10px">右へ行くほど攻撃力が上がる。同じ武器でもランクが違えば別物。</p>
+     <div class="ranks">
+      <i style="background:#e6ecf5">白</i><i style="background:#4ade80">緑</i><i style="background:#4b9dff">青</i>
+      <i style="background:#8b7bd8">黒</i><i style="background:#cdd8e6">銀</i><i style="background:#ffc63a">金</i>
+      <i style="background:linear-gradient(90deg,#ff8f8f,#ffd166,#7CFFB2,#7fd8ff,#c0a0ff)">虹</i>
+     </div>
+    </div>
+   </div>
+  </div>
+
+  <div class="sec">
+   <h2>実験モード</h2>
+   <div class="box exp">
+    <p>パスワードを知っている人だけが入れる検証用のモード。<br>
+    CPUはおらず自分ひとり、ボス4体は健在。ずっと無敵で、攻撃力10億のショットガンを持ち、武器スロットは10個になる。</p>
+    <div class="pwrow">
+     <input id="expPw" type="password" placeholder="パスワード" autocomplete="off">
+     <button class="ghost" id="btnExp">実験モードで開始</button>
+    </div>
+    <p id="expMsg" class="msg"></p>
+   </div>
+  </div>
+
+  <div class="actions">
+   <button class="go" id="btnStart">降下する</button>
+   <button class="ghost" id="btnCodex">武器図鑑を見る（500種）</button>
+  </div>
+ </div>
+</div>
+
+<div id="codex">
+ <div class="cxhead">
+  <h3>武器図鑑</h3>
+  <select id="fRank">
+   <option value="all">全ランク</option><option value="6">虹</option><option value="5">金</option>
+   <option value="4">銀</option><option value="3">黒</option><option value="2">青</option>
+   <option value="1">緑</option><option value="0">白</option>
+  </select>
+  <select id="fType"><option value="all">全種別</option><option value="m">近接</option><option value="r">遠距離</option></select>
+  <input id="fQ" placeholder="名前で検索">
+  <button class="ghost" id="btnCloseCodex" style="padding:9px 18px;font-size:14px">閉じる</button>
+ </div>
+ <p id="codexCount"></p>
+ <div id="codexList"></div>
+</div>
+
+<div id="over">
+ <h2 id="overTitle"></h2>
+ <p id="overSub"></p>
+ <div class="overBtns">
+  <button class="go" id="btnAgain" style="min-width:160px">もう一度</button>
+  <button class="ghost" id="btnMenu">キャラを変える</button>
+ </div>
+</div>
+
+<script src="js/game.js"></script>
+</body>
+</html>

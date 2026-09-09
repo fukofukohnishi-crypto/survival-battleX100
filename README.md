@@ -1,39 +1,65 @@
-# survival-battleX100
+# サバイバルバトルX100
 
-Next.js (App Router) + TypeScript + Tailwind CSS のプロジェクト。Vercel へのデプロイを前提にしています。
+100人（自分＋CPU99人）が広大なフィールドに降り、宝箱を壊して武器を集め、最後の1人を目指すバトルロイヤル。
+開始から5秒間は全員無敵。四隅には固有の特殊能力を持つボスが4体いる。
+武器は **全500種**（基礎70種 × 7ランク = 490種 ＋ 特別武器10種）。
 
-## 開発
+ブラウザだけで動く。ビルド不要、外部ライブラリなし、Canvas 2D のみ。
+
+## 遊ぶ
 
 ```bash
-npm install
-npm run dev      # http://localhost:3000
+# リポジトリ直下で
+python3 -m http.server 8000
+# → http://localhost:8000 を開く
 ```
 
-| コマンド | 内容 |
-| --- | --- |
-| `npm run dev` | 開発サーバー起動 |
-| `npm run build` | 本番ビルド |
-| `npm run start` | ビルド結果を起動 |
-| `npm run lint` | ESLint |
+`index.html` をダブルクリックしても動く。
 
-## 構成
+## 操作
+
+| 操作 | キー |
+|---|---|
+| 移動 | W A S D |
+| 攻撃 | 左クリック（長押しで連射／チャージ） |
+| サブ動作 | 右クリック または Shift |
+| 武器切替 | Q ／ 数字キー |
+| 拾う | E |
+| 回復 / 食料 / ガードポーション | R / F / G |
+| バリア纏い切替／属性切替 | X |
+| 地図の拡大 | M |
+
+スマホは画面左半分でスティック移動、右半分をタップで照準＋射撃（自動照準あり）。
+
+## 実験モード
+
+メニュー下部のパスワード欄から入る検証用モード。CPUなし・無敵・攻撃力10億のショットガン・武器スロット10個。
+パスワードと詳細は `docs/SPEC.md` の第9章。
+
+## ファイル構成
 
 ```
-src/app/
-  layout.tsx    ルートレイアウト（メタデータ・フォント）
-  page.tsx      トップページ
-  globals.css   Tailwind のエントリポイント
-public/         静的ファイル
+index.html          画面のマークアップ（メニュー・図鑑・リザルト）
+css/style.css       全スタイル
+js/game.js          ゲーム本体（約1300行・素のJavaScript）
+tools/sim.js        ヘッドレス検証ツール
+docs/SPEC.md        仕様書。ルール・武器・キャラ・ボスの定義はここが正
+docs/TODO.md        未実装・これから決めること
+assets/             参考画像
 ```
 
-## Vercel への接続
+## 変更したら必ず実行する
 
-1. https://vercel.com/new を開く
-2. `fukofukohnishi-crypto/survival-battleX100` を Import
-3. Framework Preset が **Next.js** になっていることを確認（自動検出されます）
-4. Build Command / Output Directory / Install Command はすべて既定のままで OK
-5. Deploy
+```bash
+node tools/sim.js 5
+```
 
-接続後は、Production Branch（既定では `main`）への push で本番デプロイ、それ以外のブランチへの push でプレビューデプロイが自動的に走ります。
+ブラウザなしで全500種の武器を発射し、5試合を最後まで自動対戦させる。
+例外が出るか、試合が決着しなければ終了コード1で落ちる。
 
-環境変数が必要になったら Vercel の Project Settings → Environment Variables に登録し、ローカルでは `.env.local` に置いてください（`.env*` は Git 管理外です）。
+## 現状の数値（tools/sim.js 実測）
+
+- 平均試合時間: 6〜11分
+- 1分後の生存者: 30〜50人
+- CPUがボスを倒すことも稀にある（4体中0〜1体）
+- 処理負荷: 実時間の約5%（100体＋弾＋ボスを同時に動かして余裕あり）
