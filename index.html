@@ -67,7 +67,8 @@
    <h2>実験モード</h2>
    <div class="box exp">
     <p>パスワードを知っている人だけが入れる検証用のモード。<br>
-    CPUはおらず自分ひとり、ボス4体は健在。ずっと無敵で、攻撃力10億のショットガンを持ち、武器スロットは10個になる。</p>
+    CPUはおらず自分ひとり、ボス4体は健在。ずっと無敵で、攻撃力10億のショットガンを持ち、武器スロットは10個になる。<br>
+    ゲーム中に<b>T</b>キー（スマホは「検索」ボタン）で、全500種から好きな武器をストックに入れられる。</p>
     <div class="pwrow">
      <input id="expPw" type="password" placeholder="パスワード" autocomplete="off">
      <button class="ghost" id="btnExp">実験モードで開始</button>
@@ -97,6 +98,22 @@
  </div>
  <p id="codexCount"></p>
  <div id="codexList"></div>
+</div>
+
+<div id="wsearch">
+ <div class="wshead">
+  <h3>武器を検索してストックに入れる</h3>
+  <input id="wsQ" placeholder="武器名で検索（例: 虹幻、レール、大槌）" autocomplete="off">
+  <select id="wsRank">
+   <option value="all">全ランク</option><option value="6">虹</option><option value="5">金</option>
+   <option value="4">銀</option><option value="3">黒</option><option value="2">青</option>
+   <option value="1">緑</option><option value="0">白</option>
+  </select>
+  <button class="ghost" id="wsClear">スロットを空にする</button>
+  <button class="ghost" id="wsClose">閉じる（T）</button>
+ </div>
+ <p id="wsInfo"></p>
+ <div id="wsList"></div>
 </div>
 
 <div id="over">

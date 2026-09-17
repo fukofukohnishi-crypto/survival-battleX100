@@ -143,6 +143,31 @@ const BOSSES=[
  {n:'四神の化身',   drop:'spear',col:'#ff8f5e',hp:6400,ab:'fire',   desc:'南東の祭壇に降りた化身。炎の海を生み出す。'},
 ];
 
+/* ---------- 武器の見た目（assets/weapons.png に80個並べてある） ----------
+   0-5:キャラ武器 6-9:ボスドロップ 10-44:近接35種 45-79:遠距離35種
+   ランクによる色分けは枠の色で表す（絵は共通） */
+const ATLAS_COLS=10, ATLAS_ICON=96;
+const SP_ICON={bow:0,para:1,sword:2,lance:3,mg:4,sashi:5,turbo:6,rail:7,blade:8,spear:9,expgun:47};
+// 武器ごとの絵の向き（この角度だけ戻すと右を向く）。tools/extract-icons.py が自動で書き換える
+const WANG=[2.441,-0.541,-0.61,-0.549,2.933,-0.349,3.125,1.387,2.732,0.142,-0.818,-0.326,-0.467,-0.92,-0.154,3.043,-0.855,-0.3,2.742,-0.364,2.713,-0.526,2.29,-0.562,-0.652,-0.621,2.26,2.557,-0.308,-0.096,-0.574,2.548,-0.626,-0.6,-1.392,-0.526,2.516,-0.379,-0.494,-0.165,-0.526,-0.487,-0.225,2.647,-0.493,-0.54,-0.449,-0.517,-0.32,2.835,2.737,2.853,2.716,-0.231,-0.395,2.868,-0.318,2.612,-0.586,-0.456,-0.354,-0.429,-0.433,-0.39,-0.517,-0.382,2.675,-0.5,-0.475,2.627,-0.519,-0.394,-0.019,-0.052,-0.443,-0.342,-0.446,-0.522,-0.238,-0.231];
+let atlas=null,atlasOK=0;
+if(typeof Image!=='undefined'){
+ atlas=new Image();
+ atlas.onload=()=>{atlasOK=1;};
+ atlas.src='assets/weapons.png';
+}
+function wIcon(w){
+ if(!w)return -1;
+ if(w.sp)return SP_ICON[w.id]!==undefined?SP_ICON[w.id]:0;
+ return 10+w.b;
+}
+function drawWIcon(w,x,y,size){
+ const i=wIcon(w);
+ if(!atlasOK||i<0)return false;
+ ctx.drawImage(atlas,(i%ATLAS_COLS)*ATLAS_ICON,Math.floor(i/ATLAS_COLS)*ATLAS_ICON,
+  ATLAS_ICON,ATLAS_ICON,x,y,size,size);
+ return true;
+}
 /* ---------- 武器インスタンス ---------- */
 function makeWeapon(baseIdx,rank){
  const b=BASES[baseIdx];
@@ -203,7 +228,7 @@ function genWorld(){
    const pw=ri(4,w-5),ph=ri(3,h-4);
    fillRect(x+1,y+1,pw,ph,HIGH);
    const sx=x+pw+1,sy=y+ri(1,Math.max(1,ph-1));
-   if(sx<x+w-1)setT(sx,sy,STAIR);
+   if(sx<x+w-1){setT(sx,sy,STAIR);if(sy+1<y+h-1)setT(sx,sy+1,STAIR);}
   }
   const nc=ri(1,3);
   for(let i=0;i<nc;i++){
@@ -226,8 +251,14 @@ function genWorld(){
   rectRing(x,y,w,h,WALL);
   const nst=ri(1,3);
   for(let s=0;s<nst;s++){
-   if(Math.random()<0.5){const sx=ri(x+1,x+w-2);setT(sx,Math.random()<0.5?y:y+h-1,STAIR);}
-   else{const sy=ri(y+1,y+h-2);setT(Math.random()<0.5?x:x+w-1,sy,STAIR);}
+   // 幅2タイルにする（1タイルだと体の大きさとぎりぎりで引っかかる）
+   if(Math.random()<0.5){
+    const sx=ri(x+1,x+w-3),sy2=Math.random()<0.5?y:y+h-1;
+    setT(sx,sy2,STAIR);setT(sx+1,sy2,STAIR);
+   } else {
+    const sy=ri(y+1,y+h-3),sx2=Math.random()<0.5?x:x+w-1;
+    setT(sx2,sy,STAIR);setT(sx2,sy+1,STAIR);
+   }
   }
   if(Math.random()<0.8){const cx=ri(x+2,x+w-3),cy=ri(y+2,y+h-3);if(T(cx,cy)===HIGH)addChest(cx,cy,1.4);}
   pl++;
@@ -352,8 +383,11 @@ function walkable(e,tx,ty){
  return e.lvl===0||e.onStair;
 }
 function tileFree(e,x,y,r){
- const t0=T(Math.floor(x/TS),Math.floor(y/TS));
- e.onStair=(t0===STAIR);
+ // 階段にいるかどうかは「今いる場所」で判断する。
+ // 移動先だけで見ると、階段から高台へ踏み出す瞬間に判定が外れて登れなくなる。
+ const cur=T(Math.floor(e.x/TS),Math.floor(e.y/TS));
+ const tgt=T(Math.floor(x/TS),Math.floor(y/TS));
+ e.onStair=(cur===STAIR||tgt===STAIR);
  const pts=[[x-r,y-r],[x+r,y-r],[x-r,y+r],[x+r,y+r],[x,y-r],[x,y+r],[x-r,y],[x+r,y]];
  for(const p of pts){if(!walkable(e,Math.floor(p[0]/TS),Math.floor(p[1]/TS)))return false;}
  for(const b of barriers){if(b.owner!==e.id&&Math.hypot(b.x-x,b.y-y)<b.r+r)return false;}
@@ -1169,6 +1203,13 @@ const keys={};let mouse={x:0,y:0,down:0,rdown:0};
 let cam={x:0,y:0,sh:0};
 let cv,ctx,W=0,H=0;
 addEventListener('keydown',e=>{
+ // 検索欄に文字を打っている間は、ゲームの操作として扱わない
+ const tag=e.target&&e.target.tagName;
+ if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA'){
+  if(e.code==='Escape')closeCodex();
+  return;
+ }
+ if(e.code==='Escape'&&codexOpen){closeCodex();return;}
  keys[e.code]=1;
  if(e.code.indexOf('Digit')===0||['Space','KeyQ','KeyE','KeyF','KeyG','KeyX','Tab'].indexOf(e.code)>=0)e.preventDefault();
  if(!started||gameOver)return;
@@ -1177,17 +1218,23 @@ addEventListener('keydown',e=>{
   const idx=(n===0?9:n-1);          // 0キーは10番スロット
   if(idx<player.wp.length){player.cur=idx;player.charge=0;}
  }
- if(e.code==='KeyQ'){
-  const n=player.wp.length;
-  for(let k=1;k<=n;k++){const i=(player.cur+k)%n;if(player.wp[i]){player.cur=i;break;}}
-  player.charge=0;
- }
+ if(e.code==='KeyQ')cycleWeapon();
  if(e.code==='Space'&&!e.repeat)dash(player);
+ if(e.code==='KeyT'&&expMode)toggleCodex();
  if(e.code==='KeyE')interact();
  if(e.code==='KeyF')useFood();
  if(e.code==='KeyG')usePot();
  if(e.code==='KeyR')useHeal();
- if(e.code==='KeyX'){
+ if(e.code==='KeyX')xAction();
+ if(e.code==='KeyM')mapOpen=!mapOpen;
+});
+function cycleWeapon(){
+ const n=player.wp.length;
+ for(let k=1;k<=n;k++){const i=(player.cur+k)%n;if(player.wp[i]){player.cur=i;break;}}
+ player.charge=0;
+}
+function xAction(){
+ {
   const w=curW(player);
   if(w&&wdef(w).e.barrier){
    if(player.bladeCd>0){
@@ -1205,8 +1252,7 @@ addEventListener('keydown',e=>{
    addText(player.x,player.y-34,['火','雷','水','土'][player.elem],'#9fe8ff');
   }
  }
- if(e.code==='KeyM')mapOpen=!mapOpen;
-});
+}
 addEventListener('keyup',e=>{keys[e.code]=0;});
 function bindCanvas(){
  cv.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top;});
@@ -1217,17 +1263,25 @@ function bindCanvas(){
  let stickId=null,fireId=null;
  cv.addEventListener('touchstart',e=>{
   e.preventDefault();
+  const r0=cv.getBoundingClientRect();
   for(const t of e.changedTouches){
-   const r0=cv.getBoundingClientRect();
-   if(dashBtn.r&&Math.hypot(t.clientX-r0.left-dashBtn.x,t.clientY-r0.top-dashBtn.y)<dashBtn.r){dash(player);continue;}
-   if(t.clientX<innerWidth*0.45&&stickId===null){stickId=t.identifier;stick.on=1;stick.ox=t.clientX;stick.oy=t.clientY;stick.x=0;stick.y=0;}
+   const px=t.clientX-r0.left,py=t.clientY-r0.top;
+   const b=started&&!gameOver?hitButton(px,py):null;
+   if(b){if(b.on)pressButton(b);continue;}
+   if((isTouch||W<620)&&started&&!gameOver&&mapBox.w&&px>mapBox.x&&px<mapBox.x+mapBox.w&&py>mapBox.y&&py<mapBox.y+mapBox.h){mapOpen=!mapOpen;continue;}
+   if(isTouch&&mapOpen){mapOpen=false;continue;}
+   if(px<W*0.45&&stickId===null){stickId=t.identifier;stick.on=1;stick.ox=px;stick.oy=py;stick.x=0;stick.y=0;}
    else if(fireId===null){fireId=t.identifier;mouse.down=1;aimTouch(t);}
   }
  },{passive:false});
  cv.addEventListener('touchmove',e=>{
   e.preventDefault();
   for(const t of e.changedTouches){
-   if(t.identifier===stickId){stick.x=clamp((t.clientX-stick.ox)/60,-1,1);stick.y=clamp((t.clientY-stick.oy)/60,-1,1);}
+   if(t.identifier===stickId){
+    const r1=cv.getBoundingClientRect();
+    stick.x=clamp((t.clientX-r1.left-stick.ox)/62,-1,1);
+    stick.y=clamp((t.clientY-r1.top-stick.oy)/62,-1,1);
+   }
    if(t.identifier===fireId)aimTouch(t);
   }
  },{passive:false});
@@ -1239,7 +1293,48 @@ function bindCanvas(){
  });
 }
 const stick={on:0,x:0,y:0,ox:0,oy:0};
-let dashBtn={x:0,y:0,r:0};
+/* ---------- スマホ用の画面ボタン ---------- */
+function uiButtons(){
+ if(!(isTouch||W<620)||!player||!player.alive)return [];
+ // ミニマップの下からステータス欄の上までに4段が収まるよう大きさを決める
+ const mapBottom=(isTouch||W<620?Math.min(104,W*0.28):150)+34;
+ const avail=H-16-mapBottom-36;
+ const R=clamp(Math.min(30,W*0.072,avail/8),20,30);
+ const gap=R*2+12;
+ const c1=W-R-14, c2=W-R-14-gap;
+ const b0=H-R-16;
+ const w=curW(player), d=w?wdef(w):null;
+ const xLabel=d&&d.e.barrier?'纏い':(d&&d.e.elem?['火','雷','水','土'][player.elem]:'—');
+ const list=[
+  {id:'dash',x:c1,y:b0,       r:R,l:'回避',s:'食料10',on:player.food>=10},
+  {id:'pick',x:c1,y:b0-gap,   r:R,l:'拾う',s:'',on:true},
+  {id:'swap',x:c1,y:b0-gap*2, r:R,l:'武器',s:'切替',on:true},
+  {id:'x',   x:c1,y:b0-gap*3, r:R,l:xLabel,s:'特殊',on:!!(d&&(d.e.barrier||d.e.elem))},
+  {id:'heal',x:c2,y:b0,       r:R,l:'回復',s:player.items.heal,on:player.items.heal>0},
+  {id:'food',x:c2,y:b0-gap,   r:R,l:'食料',s:player.items.food,on:player.items.food>0},
+  {id:'pot', x:c2,y:b0-gap*2, r:R,l:'防御',s:player.items.pot,on:player.items.pot>0},
+  {id:'sub', x:c2,y:b0-gap*3, r:R,l:'受け',s:player.subHold?'ON':'OFF',on:!!(d&&d.e.block)},
+ ];
+ if(expMode)list.push({id:'stock',x:c2-gap,y:b0,r:R,l:'武器庫',s:'検索',on:true});
+ return list;
+}
+function hitButton(x,y){
+ for(const b of uiButtons()){if(Math.hypot(x-b.x,y-b.y)<b.r+8)return b;}
+ return null;
+}
+function pressButton(b){
+ if(b.id==='dash')dash(player);
+ if(b.id==='pick')interact();
+ if(b.id==='swap')cycleWeapon();
+ if(b.id==='x')xAction();
+ if(b.id==='heal')useHeal();
+ if(b.id==='food')useFood();
+ if(b.id==='pot')usePot();
+ if(b.id==='sub')player.subHold=!player.subHold;
+ if(b.id==='ws')wsToggle(true);
+ if(b.id==='stock')toggleCodex();
+ b.flash=1;
+}
 function aimTouch(t){
  const r=cv.getBoundingClientRect();
  mouse.x=t.clientX-r.left;mouse.y=t.clientY-r.top;
@@ -1319,15 +1414,15 @@ function updatePlayer(dt){
  if(e.aimLock&&e.aimLock.alive)e.ang=Math.atan2(e.aimLock.y-e.y,e.aimLock.x-e.x);
  else e.ang=Math.atan2(mouse.y-H/2,mouse.x-W/2);
  const w=curW(e);
- e.sub=(mouse.rdown||keys['ShiftLeft'])?1:0;
+ e.sub=(mouse.rdown||keys['ShiftLeft']||e.subHold)?1:0;
  e.blockW=w&&wdef(w).e.block?1:0;
  e.blade=(w&&wdef(w).e.barrier&&e.bladeOn)?1:0;
  if(w&&wdef(w).e.charge){
   if(mouse.down&&e.cool<=0){e.charging=1;e.charge=Math.min(1000,e.charge+dt);}
- } else if(mouse.down)fire(e);
+ } else if(mouse.down&&!wsOpen)fire(e);
 }
 /* ================= RENDER ================= */
-let mapCanvas=null,mapOpen=false;
+let mapCanvas=null,mapOpen=false,mapBox={x:0,y:0,w:0,h:0};
 function buildMinimap(){
  mapCanvas=document.createElement('canvas');mapCanvas.width=MW;mapCanvas.height=MH;
  const c=mapCanvas.getContext('2d');
@@ -1407,8 +1502,14 @@ function draw(){
   const bob=Math.sin(t/300+d.x)*2;
   if(d.type==='w'){
    const col=rankColor(d.data.r,t);
-   ctx.shadowBlur=12;ctx.shadowColor=col;ctx.fillStyle=col;
-   ctx.fillRect(d.x-4,d.y-9+bob,8,18);ctx.shadowBlur=0;
+   const S=34,ix=d.x-S/2,iy=d.y-S/2+bob;
+   ctx.fillStyle=col;ctx.globalAlpha=0.16;
+   ctx.beginPath();ctx.arc(d.x,d.y+bob,S*0.62,0,TAU);ctx.fill();ctx.globalAlpha=1;
+   ctx.shadowBlur=12;ctx.shadowColor=col;
+   if(!drawWIcon(d.data,ix,iy,S)){ctx.fillStyle=col;ctx.fillRect(d.x-4,d.y-9+bob,8,18);}
+   ctx.shadowBlur=0;
+   ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.globalAlpha=0.7;
+   ctx.beginPath();ctx.arc(d.x,d.y+bob,S*0.62,0,TAU);ctx.stroke();ctx.globalAlpha=1;
    if(Math.hypot(d.x-player.x,d.y-player.y)<70){
     ctx.fillStyle='#dfe9f5';ctx.font='11px system-ui';ctx.textAlign='center';
     ctx.fillText('[E] '+d.data.n,d.x,d.y-18+bob);
@@ -1650,11 +1751,24 @@ function drawEnt(e,t){
  if(w){
   const d=wdef(w),col=wcol(w,t);
   const sw=e.swingT>0?Math.sin(e.swingT/180*Math.PI)*0.9:0;
+  const ic=wIcon(w);
   ctx.save();ctx.rotate(-sw);
-  ctx.strokeStyle=col;ctx.lineWidth=d.t==='m'?5:4;ctx.shadowBlur=e.blade?16:6;ctx.shadowColor=col;
-  ctx.beginPath();ctx.moveTo(8,yo+3);
-  ctx.lineTo(8+(d.t==='m'?Math.min(d.rc,60):22),yo+3);ctx.stroke();
-  ctx.shadowBlur=0;ctx.restore();
+  if(atlasOK&&ic>=0){
+   // 絵ごとに向きが違うので、WANG の分だけ戻してから照準方向へ向ける
+   const S=d.t==='m'?clamp(d.rc*0.9,30,56):36;
+   ctx.translate(11+S*0.26,yo+3);
+   ctx.rotate(-WANG[ic]);
+   if(e.blade||w.r>=5){ctx.shadowBlur=e.blade?18:10;ctx.shadowColor=e.blade?'#7be0c0':col;}
+   ctx.drawImage(atlas,(ic%ATLAS_COLS)*ATLAS_ICON,Math.floor(ic/ATLAS_COLS)*ATLAS_ICON,
+    ATLAS_ICON,ATLAS_ICON,-S/2,-S/2,S,S);
+   ctx.shadowBlur=0;
+  } else {
+   ctx.strokeStyle=col;ctx.lineWidth=d.t==='m'?5:4;ctx.shadowBlur=e.blade?16:6;ctx.shadowColor=col;
+   ctx.beginPath();ctx.moveTo(8,yo+3);
+   ctx.lineTo(8+(d.t==='m'?Math.min(d.rc,60):22),yo+3);ctx.stroke();
+   ctx.shadowBlur=0;
+  }
+  ctx.restore();
  }
  ctx.rotate(-e.ang);
  // 本体
@@ -1697,22 +1811,51 @@ function drawHUD(t){
  if(P.god){
   ctx.textAlign='center';ctx.fillStyle='#ffb0e0';ctx.font='bold 15px system-ui';
   ctx.fillText('実験モード　無敵',W/2,H*0.36);
+  ctx.fillStyle='#9a7fb0';ctx.font='11px system-ui';
+  ctx.fillText(isTouch?'「検索」ボタンで武器をストックに追加':'Tキーで武器を検索してストックに追加',W/2,H*0.36+18);
+  ctx.fillStyle='#b98fd0';ctx.font='12px system-ui';
+  ctx.fillText(isTouch?'「武器庫」ボタンで全500種から取り出せる':'[T] 全500種から武器を検索してストックへ',W/2,H*0.36+20);
  } else if(P.inv>0){
   ctx.textAlign='center';ctx.fillStyle='#9fe8ff';ctx.font='bold 15px system-ui';
   ctx.fillText('無敵 '+(P.inv/1000).toFixed(1)+'秒',W/2,H*0.36);
  }
- // 左下ステータス
- const bx=16,by=H-118;
- ctx.fillStyle='rgba(8,12,20,.72)';roundRect(bx-8,by-10,268,110,10);ctx.fill();
- bar(bx,by,240,14,P.hp/P.max,'#7CFFB2','体力 '+Math.max(0,Math.round(P.hp))+'/'+P.max);
- bar(bx,by+24,240,10,P.guard/120,'#8fb8ff','防御 '+Math.round(P.guard));
- bar(bx,by+44,240,10,P.food/100,P.food<25?'#ff8a8a':'#ffd08a','満腹度 '+Math.round(P.food));
- ctx.textAlign='left';ctx.font='12px system-ui';ctx.fillStyle='#a9bdd4';
- ctx.fillText('弾薬 '+P.ammo+'　　回復[R] '+P.items.heal+'　食料[F] '+P.items.food+'　薬[G] '+P.items.pot,bx,by+80);
- ctx.fillStyle=P.food>=10?'#9fe8ff':'#5b6b7d';
- ctx.fillText('緊急回避[Space] 食料-10',bx,by+96);
- if(P.food<=0){ctx.fillStyle='#ff8a8a';ctx.fillText('空腹！体力が減り、動きが遅い',bx+180,by+96);}
- // 右下 武器
+ // 左下ステータス（スマホは幅を詰めて、スティックと重ならない位置に）
+ const mob=isTouch||W<620;
+ const bw2=mob?Math.min(190,W*0.5):240;
+ const bx=mob?12:16, by=mob?H-96:H-118;
+ ctx.fillStyle='rgba(8,12,20,.72)';roundRect(bx-8,by-10,bw2+22,mob?86:110,10);ctx.fill();
+ bar(bx,by,bw2,14,P.hp/P.max,'#7CFFB2','体力 '+Math.max(0,Math.round(P.hp))+'/'+P.max);
+ bar(bx,by+24,bw2,10,P.guard/120,'#8fb8ff','防御 '+Math.round(P.guard));
+ bar(bx,by+44,bw2,10,P.food/100,P.food<25?'#ff8a8a':'#ffd08a','満腹度 '+Math.round(P.food));
+ ctx.textAlign='left';ctx.font=(mob?11:12)+'px system-ui';ctx.fillStyle='#a9bdd4';
+ if(mob){
+  ctx.fillText('弾薬 '+P.ammo,bx,by+70);
+  if(P.food<=0){ctx.fillStyle='#ff8a8a';ctx.fillText('空腹！体力が減る',bx+72,by+70);}
+ } else {
+  ctx.fillText('弾薬 '+P.ammo+'　　回復[R] '+P.items.heal+'　食料[F] '+P.items.food+'　薬[G] '+P.items.pot,bx,by+80);
+  ctx.fillStyle=P.food>=10?'#9fe8ff':'#5b6b7d';
+  ctx.fillText('緊急回避[Space] 食料-10',bx,by+96);
+  if(P.food<=0){ctx.fillStyle='#ff8a8a';ctx.fillText('空腹！体力が減り、動きが遅い',bx+180,by+96);}
+ }
+ // 武器表示
+ if(mob){
+  const w=curW(P),px=12,py=64,pw=Math.min(210,W*0.56);
+  ctx.fillStyle='rgba(8,12,20,.78)';roundRect(px,py,pw,36,8);ctx.fill();
+  if(w){
+   const col=wcol(w,t),d=wdef(w);
+   let tx2=px+18;
+   if(drawWIcon(w,px+5,py+4,28)){
+    ctx.strokeStyle=col;ctx.lineWidth=1.5;roundRect(px+5,py+4,28,28,4);ctx.stroke();tx2=px+39;
+   } else {ctx.fillStyle=col;ctx.fillRect(px+8,py+8,4,20);}
+   ctx.textAlign='left';ctx.fillStyle='#eaf2ff';ctx.font='bold 12px system-ui';
+   ctx.fillText(w.n.length>11?w.n.slice(0,11)+'…':w.n,tx2,py+16);
+   ctx.fillStyle=col;ctx.font='10px system-ui';
+   ctx.fillText(RANKS[w.r].k+'　攻撃'+Math.round(wdmg(w))+'　'+(P.cur+1)+'/'+P.wp.length,tx2,py+29);
+  } else {
+   ctx.textAlign='left';ctx.fillStyle='#4a5a70';ctx.font='12px system-ui';
+   ctx.fillText('素手',px+18,py+23);
+  }
+ } else {
  const nS=P.wp.length, comp=nS>2;
  const rowH=comp?24:38, gap=comp?3:6, boxW=comp?228:216;
  const wx=W-boxW-16, wy0=H-16-(rowH+gap)*nS+gap;
@@ -1740,12 +1883,14 @@ function drawHUD(t){
    ctx.fillText('空きスロット',wx+28,comp?wy+rowH/2+4:wy+24);
   }
  }
+ }
  // チャージ
  const cw=curW(P);
  if(cw&&wdef(cw).e.charge&&P.charge>0){
   const c=clamp(P.charge/900,0,1);
-  ctx.fillStyle='rgba(8,12,20,.8)';roundRect(W/2-70,H-150,140,10,5);ctx.fill();
-  ctx.fillStyle=c>=1?'#ffe27a':'#7fd8ff';roundRect(W/2-70,H-150,140*c,10,5);ctx.fill();
+  const cy2=mob?H-120:H-150;
+  ctx.fillStyle='rgba(8,12,20,.8)';roundRect(W/2-70,cy2,140,10,5);ctx.fill();
+  ctx.fillStyle=c>=1?'#ffe27a':'#7fd8ff';roundRect(W/2-70,cy2,140*c,10,5);ctx.fill();
  }
  if(cw&&wdef(cw).e.barrier){
   ctx.textAlign='center';ctx.font='12px system-ui';
@@ -1776,7 +1921,7 @@ function drawHUD(t){
  feed.forEach((f,i)=>{ctx.globalAlpha=clamp(f.a,0,1);ctx.fillStyle=f.c;ctx.fillText(f.t,W-16,74+i*18);});
  ctx.globalAlpha=1;
  // ミニマップ
- const ms=mapOpen?Math.min(W,H)*0.8:150;
+ const ms=mapOpen?Math.min(W,H)*0.8:(mob?Math.min(104,W*0.28):150);
  const mx=mapOpen?(W-ms)/2:W-ms-14,my=mapOpen?(H-ms)/2:14;
  ctx.fillStyle='rgba(6,9,15,.85)';roundRect(mx-4,my-4,ms+8,ms+8,8);ctx.fill();
  ctx.imageSmoothingEnabled=false;
@@ -1789,16 +1934,26 @@ function drawHUD(t){
   if(mapOpen||alive<=5||Math.hypot(e.x-player.x,e.y-player.y)<900){ctx.fillStyle='#ff6b6b';ctx.fillRect(mx+e.x*sc-1.5,my+e.y*sc-1.5,3,3);}}
  ctx.fillStyle='#7fd8ff';ctx.beginPath();ctx.arc(mx+player.x*sc,my+player.y*sc,3.5,0,TAU);ctx.fill();
  ctx.strokeStyle='rgba(127,216,255,.5)';ctx.lineWidth=1;ctx.strokeRect(mx,my,ms,ms);
- if(!mapOpen){ctx.fillStyle='#68809a';ctx.font='10px system-ui';ctx.textAlign='right';ctx.fillText('[M] 拡大',mx+ms,my+ms+14);}
- // スマホ用の緊急回避ボタン
- if(isTouch){
-  dashBtn={x:W-72,y:H-190,r:34};
-  ctx.fillStyle=P.food>=10?'rgba(30,58,84,.85)':'rgba(24,30,40,.7)';
-  ctx.beginPath();ctx.arc(dashBtn.x,dashBtn.y,dashBtn.r,0,TAU);ctx.fill();
-  ctx.strokeStyle=P.food>=10?'#7fd8ff':'#3d4c5f';ctx.lineWidth=2;ctx.stroke();
-  ctx.fillStyle=P.food>=10?'#cfefff':'#54687f';ctx.font='bold 12px system-ui';ctx.textAlign='center';
-  ctx.fillText('回避',dashBtn.x,dashBtn.y-1);
-  ctx.font='10px system-ui';ctx.fillText('食料-10',dashBtn.x,dashBtn.y+13);
+ if(!mapOpen){
+  ctx.fillStyle='#68809a';ctx.font='10px system-ui';ctx.textAlign='right';
+  ctx.fillText(mob?'タップで拡大':'[M] 拡大',mx+ms,my+ms+14);
+ }
+ mapBox={x:mx-4,y:my-4,w:ms+8,h:ms+8};
+ // スマホ用の画面ボタン
+ for(const b of uiButtons()){
+  ctx.fillStyle=b.on?'rgba(26,48,72,.88)':'rgba(20,26,36,.6)';
+  ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,TAU);ctx.fill();
+  ctx.strokeStyle=b.on?(b.id==='sub'&&P.subHold?'#7CFFB2':'#5fa8d8'):'#2b3646';
+  ctx.lineWidth=2;ctx.stroke();
+  ctx.textAlign='center';
+  ctx.fillStyle=b.on?'#dff0ff':'#4a5a6e';
+  ctx.font='bold '+Math.round(b.r*0.44)+'px system-ui';
+  ctx.fillText(b.l,b.x,b.y+(b.s!==''?0:b.r*0.16));
+  if(b.s!==''){
+   ctx.font=Math.round(b.r*0.34)+'px system-ui';
+   ctx.fillStyle=b.on?'#8fb6d4':'#3d4c5f';
+   ctx.fillText(b.s,b.x,b.y+b.r*0.47);
+  }
  }
  // タッチ用スティック
  if(stick.on){
@@ -1858,8 +2013,74 @@ function endGame(win){
  $('#overSub').innerHTML='順位 <b>'+(win?1:alive+1)+'位</b> / 100人　　撃破 <b>'+player.kills+'</b>人　　生存 <b>'+Math.floor(timeAlive/1000)+'</b>秒';
 }
 
+/* ================= 実験モードの武器検索 ================= */
+let wsOpen=0;
+function wsToggle(open){
+ if(!expMode||!started||gameOver)return;
+ wsOpen=open===undefined?!wsOpen:open?1:0;
+ $('#wsearch').style.display=wsOpen?'flex':'none';
+ if(wsOpen){wsBuild();const i=$('#wsQ');if(i&&i.focus)i.focus();}
+}
+function wsCandidates(){
+ const out=[];
+ SPECIALS.forEach(sp=>out.push({w:makeSpecial(sp.id),n:sp.n,dm:sp.d,t:sp.t,r:6}));
+ out.push({w:makeSpecial('expgun'),n:SP.expgun.n,dm:SP.expgun.d,t:'r',r:6});
+ for(let r=6;r>=0;r--)BASES.forEach((b,i)=>{
+  out.push({w:makeWeapon(i,r),n:RANKS[r].pre+'・'+b.n,dm:Math.round(b.d*RANKS[r].m),t:b.t,r:r});
+ });
+ return out;
+}
+function wsBuild(){
+ const q=($('#wsQ').value||'').trim(), rf=$('#wsRank').value;
+ const list=wsCandidates().filter(e=>(rf==='all'||+rf===e.r)&&(!q||e.n.indexOf(q)>=0));
+ const show=list.slice(0,150);
+ let html='';
+ show.forEach((e,idx)=>{
+  const ic=wIcon(e.w);
+  const col=e.r===6?'linear-gradient(90deg,#ff8f8f,#ffd166,#7CFFB2,#7fd8ff)':RANKS[e.r].c;
+  html+='<button class="wsrow" data-i="'+idx+'">'+
+   '<span class="ico" style="background-position:'+(-(ic%10)*40)+'px '+(-Math.floor(ic/10)*40)+'px"></span>'+
+   '<span><b>'+e.n+'</b><em><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:'+col+'"></span> '+
+   RANKS[e.r].k+'　攻撃'+Math.round(e.dm)+'　'+(e.t==='m'?'近接':'遠距離')+'</em></span></button>';
+ });
+ const box=$('#wsList');
+ box.innerHTML=html||'<p style="color:#8ea3bd">見つかりません</p>';
+ box.querySelectorAll('.wsrow').forEach(el=>{
+  el.onclick=()=>{
+   const e=show[+el.dataset.i];
+   takeWeapon(player,e.w);
+   wsBuild();
+   $('#wsInfo').textContent='「'+e.n+'」をストックに入れた（'+player.wp.filter(x=>x).length+'/'+player.wp.length+'）';
+  };
+ });
+ $('#wsInfo').textContent=list.length+' 件（'+show.length+' 件を表示）　押すとストックに入る。'+
+  '空きがなければ選択中のスロットと入れ替わる。　今のストック '+player.wp.filter(x=>x).length+'/'+player.wp.length;
+}
 /* ================= 画面 / 図鑑 ================= */
-let selChar='kni';
+let selChar='kni',codexOpen=0;
+function openCodex(){
+ codexOpen=1;mouse.down=0;
+ $('#codex').style.display='flex';
+ buildCodex();
+ const q=$('#fQ'); if(q&&q.focus)q.focus();
+}
+function closeCodex(){
+ codexOpen=0;
+ $('#codex').style.display='none';
+}
+function toggleCodex(){codexOpen?closeCodex():openCodex();}
+// 図鑑から選んだ武器を受け取る（実験モードのみ）
+function giveWeapon(el){
+ if(!expMode||!started||gameOver||!player||!player.alive)return;
+ let w=null;
+ if(el.dataset.sp)w=makeSpecial(el.dataset.sp);
+ else if(el.dataset.b!==undefined)w=makeWeapon(+el.dataset.b,+el.dataset.r);
+ if(!w)return;
+ takeWeapon(player,w);
+ addFx(player.x,player.y,rankColor(w.r),16,3,500,3);
+ el.classList.add('got');
+ setTimeout(()=>el.classList.remove('got'),450);
+}
 function buildCharCards(){
  const wrap=$('#chars');
  wrap.innerHTML='';
@@ -1868,7 +2089,9 @@ function buildCharCards(){
   const d=document.createElement('button');
   d.className='card'+(c.id===selChar?' on':'');
   d.dataset.id=c.id;
+  const ic=SP_ICON[c.w];
   d.innerHTML='<span class="dot" style="background:'+c.col+'"></span>'+
+   '<span class="ico card-ico" style="background-position:'+(-(ic%10)*54)+'px '+(-Math.floor(ic/10)*54)+'px"></span>'+
    '<h3>'+c.n+'</h3><p class="wp">'+sp.n+'<i>虹</i></p>'+
    '<p class="ds">'+c.desc+'</p><p class="bn">'+c.bonus+'</p>';
   d.onclick=()=>{selChar=c.id;buildCharCards();};
@@ -1878,14 +2101,17 @@ function buildCharCards(){
 function buildCodex(){
  const box=$('#codexList');
  const rf=$('#fRank').value, tf=$('#fType').value, q=$('#fQ').value.trim();
+ const give=!!(expMode&&started&&!gameOver);      // 実験モード中だけ入手できる
  let html='',n=0;
  SPECIALS.forEach(s=>{
   if(rf!=='all'&&rf!=='6')return;
   if(tf!=='all'&&tf!==s.t)return;
   if(q&&s.n.indexOf(q)<0)return;
   n++;
-  html+='<div class="row sp"><span class="rk" style="background:linear-gradient(90deg,#ff6b6b,#ffd166,#7CFFB2,#7fd8ff,#b28dff)"></span>'+
-   '<div><b>'+s.n+'</b> <em>'+(s.t==='m'?'近接':'遠距離')+'／攻撃'+s.d+(s.boss?'／ボスドロップ':'／キャラ武器')+'</em><p>'+s.desc+'</p></div></div>';
+  const ic=SP_ICON[s.id]!==undefined?SP_ICON[s.id]:0;
+  html+='<div class="row sp'+(give?' get':'')+'" data-sp="'+s.id+'"><span class="rk" style="background:linear-gradient(90deg,#ff6b6b,#ffd166,#7CFFB2,#7fd8ff,#b28dff)"></span>'+
+   '<span class="ico" style="background-position:'+(-(ic%10)*46)+'px '+(-Math.floor(ic/10)*46)+'px"></span>'+
+   '<div><b>'+s.n+'</b> <em>'+(s.t==='m'?'近接':'遠距離')+'／攻撃'+s.d+(s.boss?'／ボスドロップ':'／キャラ武器')+'</em><p>'+s.desc+'</p></div>'+(give?'<span class="give">ストックへ</span>':'')+'</div>';
  });
  for(let r=6;r>=0;r--){
   if(rf!=='all'&&+rf!==r)continue;
@@ -1896,17 +2122,21 @@ function buildCodex(){
    n++;
    if(n>620)return;
    const col=r===6?'linear-gradient(90deg,#ff6b6b,#ffd166,#7CFFB2,#7fd8ff)':RANKS[r].c;
-   html+='<div class="row"><span class="rk" style="background:'+col+'"></span>'+
-    '<div><b>'+nm+'</b> <em>'+(b.t==='m'?'近接':'遠距離')+'／攻撃'+Math.round(b.d*RANKS[r].m)+'</em><p>'+b.desc+'</p></div></div>';
+   const ic2=10+i;
+   html+='<div class="row'+(give?' get':'')+'" data-b="'+i+'" data-r="'+r+'"><span class="rk" style="background:'+col+'"></span>'+
+    '<span class="ico" style="background-position:'+(-(ic2%10)*46)+'px '+(-Math.floor(ic2/10)*46)+'px"></span>'+
+    '<div><b>'+nm+'</b> <em>'+(b.t==='m'?'近接':'遠距離')+'／攻撃'+Math.round(b.d*RANKS[r].m)+'</em><p>'+b.desc+'</p></div>'+(give?'<span class="give">ストックへ</span>':'')+'</div>';
   });
  }
  box.innerHTML=html||'<p class="none">条件に合う武器がありません。</p>';
- $('#codexCount').textContent=n+' 件表示中（全 '+(BASES.length*7+SPECIALS.length)+' 種）';
+ $('#codexCount').textContent=n+' 件表示中（全 '+(BASES.length*7+SPECIALS.length)+' 種）'
+  +(give?'　― 押すとストックに入ります（空きが無ければ今の武器と入れ替え）':'');
 }
 function startGame(exp){
  expMode=exp?1:0;
  $('#menu').style.display='none';
  $('#over').style.display='none';
+ wsToggle(false);$('#wsearch').style.display='none';wsOpen=0;
  gameOver=0;gt=0;timeAlive=0;killsTotal=0;bullets=[];fx=[];dmgTexts=[];feed=[];hazards=[];strikes=[];
  genWorld();buildMinimap();spawnAll(selChar);
  started=1;last=0;
@@ -1915,7 +2145,13 @@ function startGame(exp){
 }
 function init(){
  cv=$('#cv');ctx=cv.getContext('2d');
- const rs=()=>{W=cv.width=innerWidth;H=cv.height=innerHeight;};
+ const rs=()=>{
+  const dpr=Math.min(devicePixelRatio||1,2);
+  W=innerWidth;H=innerHeight;
+  cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);
+  cv.style.width=W+'px';cv.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+ };
  addEventListener('resize',rs);rs();
  bindCanvas();
  buildCharCards();
@@ -1930,8 +2166,12 @@ function init(){
  $('#btnExp').onclick=tryExp;
  pw.addEventListener('keydown',ev=>{if(ev.key==='Enter')tryExp();});
  $('#btnMenu').onclick=()=>{$('#over').style.display='none';$('#menu').style.display='block';started=0;};
- $('#btnCodex').onclick=()=>{$('#codex').style.display='flex';buildCodex();};
- $('#btnCloseCodex').onclick=()=>{$('#codex').style.display='none';};
+ $('#btnCodex').onclick=openCodex;
+ $('#btnCloseCodex').onclick=closeCodex;
+ $('#codexList').addEventListener('click',ev=>{
+  const row=ev.target.closest&&ev.target.closest('.row.get');
+  if(row)giveWeapon(row);
+ });
  ['fRank','fType'].forEach(id=>$('#'+id).onchange=buildCodex);
  $('#fQ').oninput=buildCodex;
  requestAnimationFrame(loop);
