@@ -170,7 +170,7 @@ button:focus-visible,.card:focus-visible{outline:2px solid var(--plasma);outline
       <li><span>緊急回避</span><kbd>Space</kbd>（前方へ跳ぶ・食料-10）</li>
       <li><span>拾う</span><kbd>E</kbd></li>
       <li><span>回復/食料/薬</span><kbd>R</kbd> <kbd>F</kbd> <kbd>G</kbd></li>
-      <li><span>纏い／属性</span><kbd>X</kbd>（バリアブレード・神槍）</li>
+      <li><span>特殊動作</span><kbd>X</kbd>（日傘=眩しい光／バリアブレード=纏い／神槍=属性）</li>
       <li><span>地図</span><kbd>M</kbd></li>
      </ul>
      <p style="font-size:12px;color:var(--dim);margin-top:10px;line-height:1.8">スマホは画面左半分でスティック移動、右半分をタップで照準と射撃（自動照準あり）。緊急回避は右下の丸ボタン。</p>
@@ -373,7 +373,7 @@ const BASES=[
 /* ---------- 特別武器(10種・すべて虹) ---------- */
 const SPECIALS=[
  {id:'bow',   n:'木の弓',        t:'r',abs:1,d:26,cd:500,rng:1150,sp:20,cnt:1,sprd:0.01,am:0,e:{charge:1,arrow:1},desc:'チャージするほど速く遠くへ飛ぶ。弾薬を使わない。'},
- {id:'para',  n:'日傘',          t:'m',abs:1,d:16,cd:420,rc:52,e:{guard:22,sun:1,block:1},desc:'サブ動作で受け。太陽光を反射して相手をスタンさせる。'},
+ {id:'para',  n:'日傘',          t:'m',abs:1,d:16,cd:420,rc:52,e:{guard:22,sun:1,block:1},desc:'サブ動作で受け（被ダメ65%減）。Xキーで太陽光を反射し、前方の相手をスタンさせる（4秒に1回・攻撃と同時に出せる）。'},
  {id:'sword', n:'騎士の剣',      t:'m',abs:1,d:32,cd:400,rc:66,e:{},desc:'癖のない正統派の剣。安定して強い。'},
  {id:'lance', n:'硬めの槍',      t:'m',abs:1,d:29,cd:520,rc:112,e:{pierceM:1},desc:'長いリーチ。直線状の敵をまとめて突く。'},
  {id:'mg',    n:'マシンガン',    t:'r',abs:1,d:13,cd:85,rng:660,sp:17,cnt:1,sprd:0.07,am:1,e:{},desc:'名前の通り。圧倒的な制圧射撃。'},
@@ -889,14 +889,33 @@ function meleeHit(e,d,dm,w){
   }
  }
  if(d.e.elem){elemBurst(e,dm);}
- if(d.e.sun&&e.sun<=0){
-  e.sun=4000;
-  for(const t of ents){if(t!==e&&t.alive&&Math.hypot(t.x-e.x,t.y-e.y)<320&&Math.abs(angDiff(Math.atan2(t.y-e.y,t.x-e.x),e.ang))<0.7){t.stun=Math.max(t.stun,1100);addText(t.x,t.y-24,'まぶしい!','#ffe9a0');}}
-  addFx(e.x+Math.cos(e.ang)*50,e.y+Math.sin(e.ang)*50,'#fff3b0',18,4,500,4);
- }
+ // CPUは攻撃に合わせて自動で光らせる（プレイヤーはXキーで好きな時に）
+ if(d.e.sun&&e.bot)sunFlash(e);
  // 斬撃エフェクト
  if(!e.bot||Math.hypot(e.x-player.x,e.y-player.y)<900)
   fx.push({slash:1,x:e.x,y:e.y,a:e.ang,rc:reach,l:200,ml:200,c:w?wcol(w):'#fff',arc:arc});
+}
+/* 日傘：太陽光の反射で前方の相手をスタンさせる。
+   攻撃のクールダウンを消費しないので、光らせながら斬れる。 */
+function sunFlash(e){
+ if(e.sun>0){
+  if(e===player)addText(e.x,e.y-34,'あと'+(e.sun/1000).toFixed(1)+'秒','#8a93a5');
+  return false;
+ }
+ e.sun=4000;
+ let n=0;
+ for(const t of ents){
+  if(t===e||!t.alive)continue;
+  if(Math.hypot(t.x-e.x,t.y-e.y)>320)continue;
+  if(Math.abs(angDiff(Math.atan2(t.y-e.y,t.x-e.x),e.ang))>0.7)continue;
+  t.stun=Math.max(t.stun,1100);
+  addText(t.x,t.y-24,'まぶしい!','#ffe9a0');
+  n++;
+ }
+ addFx(e.x+Math.cos(e.ang)*50,e.y+Math.sin(e.ang)*50,'#fff3b0',22,5,500,4);
+ fx.push({slash:1,x:e.x,y:e.y,a:e.ang,rc:330,l:260,ml:260,c:'#fff3b0',arc:0.7});
+ if(e===player)addText(e.x,e.y-34,n?'まぶしい光！ '+n+'人':'まぶしい光！','#ffe9a0');
+ return true;
 }
 const angDiff=(a,b)=>{let d=a-b;while(d>Math.PI)d-=TAU;while(d<-Math.PI)d+=TAU;return d;};
 function knock(t,src,v){
@@ -1499,7 +1518,9 @@ function cycleWeapon(){
 function xAction(){
  {
   const w=curW(player);
-  if(w&&wdef(w).e.barrier){
+  if(w&&wdef(w).e.sun){
+   sunFlash(player);
+  } else if(w&&wdef(w).e.barrier){
    if(player.bladeCd>0){
     addText(player.x,player.y-34,'クールタイム中 '+(player.bladeCd/1000).toFixed(1)+'秒','#ff8a8a');
    } else if(player.bladeOn){
@@ -1567,12 +1588,12 @@ function uiButtons(){
  const c1=W-R-14, c2=W-R-14-gap;
  const b0=H-R-16;
  const w=curW(player), d=w?wdef(w):null;
- const xLabel=d&&d.e.barrier?'纏い':(d&&d.e.elem?['火','雷','水','土'][player.elem]:'—');
+ const xLabel=d&&d.e.sun?'眩':(d&&d.e.barrier?'纏い':(d&&d.e.elem?['火','雷','水','土'][player.elem]:'—'));
  const list=[
   {id:'dash',x:c1,y:b0,       r:R,l:'回避',s:'食料10',on:player.food>=10},
   {id:'pick',x:c1,y:b0-gap,   r:R,l:'拾う',s:'',on:true},
   {id:'swap',x:c1,y:b0-gap*2, r:R,l:'武器',s:'切替',on:true},
-  {id:'x',   x:c1,y:b0-gap*3, r:R,l:xLabel,s:'特殊',on:!!(d&&(d.e.barrier||d.e.elem))},
+  {id:'x',   x:c1,y:b0-gap*3, r:R,l:xLabel,s:d&&d.e.sun?(player.sun>0?(player.sun/1000).toFixed(0)+'秒':'光る'):'特殊',on:!!(d&&(d.e.barrier||d.e.elem||d.e.sun))&&!(d&&d.e.sun&&player.sun>0)},
   {id:'heal',x:c2,y:b0,       r:R,l:'回復',s:player.items.heal,on:player.items.heal>0},
   {id:'food',x:c2,y:b0-gap,   r:R,l:'食料',s:player.items.food,on:player.items.food>0},
   {id:'pot', x:c2,y:b0-gap*2, r:R,l:'防御',s:player.items.pot,on:player.items.pot>0},
@@ -2155,7 +2176,11 @@ function drawHUD(t){
   ctx.fillStyle='rgba(8,12,20,.8)';roundRect(W/2-70,cy2,140,10,5);ctx.fill();
   ctx.fillStyle=c>=1?'#ffe27a':'#7fd8ff';roundRect(W/2-70,cy2,140*c,10,5);ctx.fill();
  }
- if(cw&&wdef(cw).e.barrier){
+ if(cw&&wdef(cw).e.sun){
+  ctx.textAlign='center';ctx.font='12px system-ui';
+  ctx.fillStyle=P.sun>0?'#7f93aa':'#ffe9a0';
+  ctx.fillText(P.sun>0?'眩しい光　あと '+(P.sun/1000).toFixed(1)+'秒':'Xキーで眩しい光（前方をスタン・攻撃と同時に出せる）',W/2,H-158);
+ } else if(cw&&wdef(cw).e.barrier){
   ctx.textAlign='center';ctx.font='12px system-ui';
   let msg,col;
   if(P.bladeCd>0){col='#ff8a8a';msg='使用不能　復帰まで '+(P.bladeCd/1000).toFixed(1)+'秒';}
