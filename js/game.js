@@ -150,6 +150,12 @@ const ATLAS_COLS=10, ATLAS_ICON=96;
 const SP_ICON={bow:0,para:1,sword:2,lance:3,mg:4,sashi:5,turbo:6,rail:7,blade:8,spear:9,expgun:47};
 // 武器ごとの絵の向き（この角度だけ戻すと右を向く）。tools/extract-icons.py が自動で書き換える
 const WANG=[2.441,-0.541,-0.61,-0.549,2.933,-0.349,3.125,1.387,2.732,0.142,-0.818,-0.326,-0.467,-0.92,-0.154,3.043,-0.855,-0.3,2.742,-0.364,2.713,-0.526,2.29,-0.562,-0.652,-0.621,2.26,2.557,-0.308,-0.096,-0.574,2.548,-0.626,-0.6,-1.392,-0.526,2.516,-0.379,-0.494,-0.165,-0.526,-0.487,-0.225,2.647,-0.493,-0.54,-0.449,-0.517,-0.32,2.835,2.737,2.853,2.716,-0.231,-0.395,2.868,-0.318,2.612,-0.586,-0.456,-0.354,-0.429,-0.433,-0.39,-0.517,-0.382,2.675,-0.5,-0.475,2.627,-0.519,-0.394,-0.019,-0.052,-0.443,-0.342,-0.446,-0.522,-0.238,-0.231];
+let bossAtlas=null,bossAtlasOK=0;
+if(typeof Image!=='undefined'){
+ bossAtlas=new Image();
+ bossAtlas.onload=()=>{bossAtlasOK=1;};
+ bossAtlas.src='assets/bosses.png';
+}
 let atlas=null,atlasOK=0;
 if(typeof Image!=='undefined'){
  atlas=new Image();
@@ -1584,9 +1590,29 @@ function draw(){
  for(const b of bossList){
   if(!b.alive)continue;
   if(b.x<cam.x-260||b.x>cam.x+W+260||b.y<cam.y-260||b.y>cam.y+H+260)continue;
-  ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.ang+Math.PI/2);
-  if(b.clone)ctx.globalAlpha=0.62;
-  drawBossShape(b,t);
+  ctx.save();ctx.translate(b.x,b.y);
+  if(b.clone)ctx.globalAlpha=0.6;
+  if(bossAtlasOK){
+   // 絵は正面向きなので回転させない。向きは下の三角で示す
+   const S=b.r*2.9, i=b.i;   // 外周はぼかしてあるので、見た目と当たり判定がだいたい一致する
+   const puls=b.rest>0?1:(1+Math.sin(t/420+b.i)*0.02);
+   ctx.shadowBlur=30;ctx.shadowColor=b.def.col;
+   ctx.drawImage(bossAtlas,(i%2)*256,Math.floor(i/2)*256,256,256,-S/2*puls,-S/2*puls,S*puls,S*puls);
+   ctx.shadowBlur=0;
+   if(b.hit>0){                       // 被弾したら白く光らせる
+    ctx.globalAlpha=(b.clone?0.6:1)*Math.min(0.55,b.hit*0.5);
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(0,0,b.r*0.95,0,TAU);ctx.fill();
+    ctx.globalAlpha=b.clone?0.6:1;
+   }
+   // 向きを示す三角
+   ctx.rotate(b.ang);
+   ctx.fillStyle=b.def.col;ctx.shadowBlur=12;ctx.shadowColor=b.def.col;
+   ctx.beginPath();ctx.moveTo(b.r+20,0);ctx.lineTo(b.r+4,-9);ctx.lineTo(b.r+4,9);ctx.closePath();ctx.fill();
+   ctx.shadowBlur=0;
+  } else {
+   ctx.rotate(b.ang+Math.PI/2);
+   drawBossShape(b,t);
+  }
   ctx.restore();ctx.globalAlpha=1;ctx.shadowBlur=0;
   if(b.inv>0){
    ctx.strokeStyle='rgba(159,232,255,'+(0.4+Math.sin(t/90)*0.3)+')';ctx.lineWidth=3;

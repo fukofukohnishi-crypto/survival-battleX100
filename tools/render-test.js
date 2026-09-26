@@ -28,7 +28,7 @@ global.document={querySelector:()=>_el,addEventListener:()=>{},createElement:()=
 const H=`
 cv=_el;ctx=_ctx;W=1280;H=720;
 expMode=0;genWorld();buildMinimap();spawnAll('kni');started=1;
-atlasOK=1;atlas={};                    // 画像は読み込めた前提にする
+atlasOK=1;atlas={};bossAtlasOK=1;bossAtlas={};   // 画像は読み込めた前提にする
 let err=0;
 // 500種すべてを持たせて描画してみる
 for(let i=0;i<BASES.length;i++){

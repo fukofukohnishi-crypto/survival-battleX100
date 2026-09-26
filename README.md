@@ -46,11 +46,13 @@ index.html              画面のマークアップ（メニュー・図鑑・�
 css/style.css           全スタイル
 js/game.js              ゲーム本体（素のJavaScript）
 assets/weapons.png      武器アイコン80個を並べた画像（背景透過）
+assets/bosses.png       ボス4体の絵（背景透過）
 assets/source-*.png     アイコンの元画像
 tools/sim.js            ヘッドレス検証ツール（ロジック）
 tools/render-test.js    描画テスト
 tools/stair-test.js     階段テスト
 tools/extract-icons.py  元画像からアイコン画像を作り直す
+tools/extract-bosses.py 元画像からボス画像を作り直す
 docs/SPEC.md            仕様書。ルール・武器・キャラ・ボスの定義はここが正
 docs/TODO.md            未実装・これから決めること
 ```

@@ -10,9 +10,12 @@ css  = open('css/style.css').read()
 js   = open('js/game.js').read()
 img  = base64.b64encode(open('assets/weapons.png','rb').read()).decode()
 uri  = 'data:image/png;base64,' + img
+bimg = base64.b64encode(open('assets/bosses.png','rb').read()).decode()
+buri = 'data:image/png;base64,' + bimg
 # 画像は1枚しかないので、参照している場所をすべて埋め込みに置き換える
 css = css.replace('url(../assets/weapons.png)', 'url(' + uri + ')')
 js  = js.replace("atlas.src='assets/weapons.png';", "atlas.src='" + uri + "';")
+js  = js.replace("bossAtlas.src='assets/bosses.png';", "bossAtlas.src='" + buri + "';")
 html = html.replace('<link rel="stylesheet" href="css/style.css">', '<style>\n' + css + '\n</style>')
 html = html.replace('<script src="js/game.js"></script>', '<script>\n' + js + '\n</script>')
 open('dist/survival-battle-x100.html', 'w').write(html)
