@@ -1918,12 +1918,14 @@ function drawHUD(t){
   if(w){
    const col=wcol(w,t),d=wdef(w);
    ctx.fillStyle=col;ctx.fillRect(wx+18,wy+4,4,rowH-8);
-   ctx.fillStyle='#eaf2ff';ctx.font='bold '+(comp?11:13)+'px system-ui';
-   const nm=w.n.length>(comp?13:15)?w.n.slice(0,comp?13:15)+'…':w.n;
-   ctx.fillText(nm,wx+28,comp?wy+rowH/2+4:wy+17);
-   ctx.fillStyle=col;ctx.font=(comp?10:11)+'px system-ui';
    const info=RANKS[w.r].k+'　攻撃'+Math.round(wdmg(w))+'　'+(d.t==='m'?'近接':'遠距離');
-   if(comp)ctx.fillText(info,wx+boxW-4-ctx.measureText(info).width,wy+rowH/2+4);
+   ctx.font=(comp?10:11)+'px system-ui';
+   const iw=ctx.measureText(info).width;
+   // 1行に名前と情報を並べるときは、情報の幅を測ってから名前を収まる分だけ出す
+   ctx.fillStyle='#eaf2ff';ctx.font='bold '+(comp?11:13)+'px system-ui';
+   ctx.fillText(fitText(w.n,boxW-32-(comp?iw+8:0)),wx+28,comp?wy+rowH/2+4:wy+17);
+   ctx.fillStyle=col;ctx.font=(comp?10:11)+'px system-ui';
+   if(comp)ctx.fillText(info,wx+boxW-4-iw,wy+rowH/2+4);
    else ctx.fillText(info,wx+28,wy+31);
   } else {
    ctx.fillStyle='#3d4c5f';ctx.font=(comp?10:12)+'px system-ui';
@@ -1964,8 +1966,8 @@ function drawHUD(t){
   if(Math.hypot(b.x-P.x,b.y-P.y)>620)continue;
   ctx.fillStyle='rgba(8,12,20,.8)';roundRect(W/2-180,66,360,26,8);ctx.fill();
   ctx.fillStyle=b.def.col;roundRect(W/2-176,70,352*clamp(b.hp/b.max,0,1),18,6);ctx.fill();
-  ctx.fillStyle='#0a0f18';ctx.font='bold 13px system-ui';ctx.textAlign='center';
-  ctx.fillText(b.def.n+'　'+Math.max(0,Math.round(b.hp)),W/2,84);
+  ctx.font='bold 13px system-ui';ctx.textAlign='center';
+  barLabel(b.def.n+'　'+Math.max(0,Math.round(b.hp)),W/2,84);
  }
  // キルログ
  ctx.textAlign='right';ctx.font='12px system-ui';
@@ -2021,11 +2023,26 @@ function drawHUD(t){
   ctx.moveTo(mouse.x,mouse.y+4);ctx.lineTo(mouse.x,mouse.y+12);ctx.stroke();
  }
 }
+// 今の ctx.font で max px に収まるところまで切り、切ったら末尾に…を付ける
+function fitText(s,max){
+ if(max<=0)return '';
+ if(ctx.measureText(s).width<=max)return s;
+ let lo=0,hi=s.length;
+ while(lo<hi){const m=(lo+hi+1)>>1;
+  if(ctx.measureText(s.slice(0,m)+'…').width<=max)lo=m;else hi=m-1;}
+ return lo?s.slice(0,lo)+'…':'';
+}
+// バーの上の文字。埋まっている所と空いている所のどちらに載っても読めるよう縁取りする
+function barLabel(label,x,y){
+ ctx.lineJoin='round';ctx.lineWidth=3;ctx.strokeStyle='rgba(4,7,13,.9)';
+ ctx.strokeText(label,x,y);
+ ctx.fillStyle='#eaf2ff';ctx.fillText(label,x,y);
+}
 function bar(x,y,w,h,v,c,label){
  ctx.fillStyle='rgba(255,255,255,.09)';roundRect(x,y,w,h,h/2);ctx.fill();
  ctx.fillStyle=c;roundRect(x,y,w*clamp(v,0,1),h,h/2);ctx.fill();
- ctx.fillStyle='#0d131d';ctx.font='bold 10px system-ui';ctx.textAlign='left';
- ctx.fillText(label,x+8,y+h-3.5);
+ ctx.font='bold 10px system-ui';ctx.textAlign='left';
+ barLabel(label,x+8,y+h-3.5);
 }
 function roundRect(x,y,w,h,r){
  ctx.beginPath();

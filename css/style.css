@@ -61,7 +61,7 @@ button.ghost{border:1px solid var(--line);background:transparent;color:var(--ink
 button.ghost:hover{border-color:var(--plasma);color:var(--plasma)}
 button:focus-visible,.card:focus-visible{outline:2px solid var(--plasma);outline-offset:3px}
 
-#codex{display:none;position:fixed;inset:0;z-index:20;background:rgba(4,7,13,.96);flex-direction:column}
+#codex{display:none;position:fixed;inset:0;z-index:20;background:var(--void);flex-direction:column}
 .cxhead{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .cxhead h3{font-size:17px;margin-right:auto}
 .cxhead select,.cxhead input{background:#101a2c;border:1px solid var(--line);color:var(--ink);
